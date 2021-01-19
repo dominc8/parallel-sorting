@@ -5,23 +5,35 @@
 #include <assert.h>
 #include <math.h>
 #include <mpi.h>
+#define LOG_TO_FILE
+
+FILE *log_file;
 
 #ifndef NDEBUG
-#define LOG(format, ...) printf("%d: " format "\n", rank, ##__VA_ARGS__)
+
+#define LOG(format, ...) fprintf(log_file, "%d: " format "\n", rank, ##__VA_ARGS__)
+#define LOG_ARRAY(arr_ptr, size) print_array(log_file, (arr_ptr), (size))
+
 #else
+
 #define LOG(format, ...) do {} while (0)
+#define LOG_ARRAY(arr_ptr, size) do {} while (0)
+
 #endif
 
 
-#define ARR_SIZE 16
+#define ARR_SIZE (1<<26)
+#ifndef N_SUBARRAYS
 #define N_SUBARRAYS 4
-#define LOG2_N_SUBARRAYS 2
+#endif
 #define SUBARR_SIZE (ARR_SIZE/N_SUBARRAYS)
+
+int rank;
 
 
 void alloc_fill_array(int32_t **arr, int32_t size);
-void print_array(int32_t *arr, int32_t size);
-void merge_sorted(int32_t *arr_out, int32_t *arr_in1, int32_t *arr_in2, int32_t arr_in_size);
+void print_array(FILE *f, int32_t *arr, int32_t size);
+void merge_sorted_in_place(int32_t *arr, int32_t arr_half_size, int32_t *tmp_buf);
 
 int cmpfunc_int32 (const void *a, const void *b)
 {
@@ -31,25 +43,38 @@ int cmpfunc_int32 (const void *a, const void *b)
 int main(int argc, char **argv)
 {
     const int root = 0;
-    int rank, size, size_mod, rank_mod;
+    int size, size_mod, rank_mod;
     int recv_rank, send_rank;
     int32_t sub_arr_size;
+    int32_t init_sub_arr_offset;
     int32_t *arr;
     int32_t *sub_arr;
+    int32_t *tmp_buf;
+    char log_file_name[15] = {0};
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    assert(size == 4);
+    assert(size == N_SUBARRAYS);
+
+#ifdef LOG_TO_FILE
+    snprintf(&log_file_name[0], sizeof(log_file_name), "proc%d.log", rank);
+    log_file = fopen(&log_file_name[0], "w");
+#else
+    log_file = stdout;
+#endif
 
     if (root == rank)
     {
         alloc_fill_array(&arr, ARR_SIZE);
+        LOG_ARRAY(&arr[0], ARR_SIZE);
     }
+
 
     sub_arr_size = ARR_SIZE / (size / (size / (rank + 1)));
     sub_arr = (int32_t*)malloc(sub_arr_size * sizeof(*sub_arr));
+    tmp_buf = (int32_t*)malloc(sub_arr_size * sizeof(*sub_arr) >> 1);
     LOG("sub_arr_size= %d", sub_arr_size);
 
 
@@ -57,6 +82,7 @@ int main(int argc, char **argv)
                 &sub_arr[0], SUBARR_SIZE, MPI_INT32_T, root, MPI_COMM_WORLD);
 
     qsort(&sub_arr[0], SUBARR_SIZE, sizeof(*sub_arr), &cmpfunc_int32);
+    LOG_ARRAY(&sub_arr[0], sub_arr_size);
 
     int temp_size = size>>1;
     int temp_rank = rank;
@@ -64,45 +90,105 @@ int main(int argc, char **argv)
     MPI_Status status;
     while (temp_rank<<1 < size)
     {
-        // recv_rank = rank + temp_size;
-        // odbierz od kogos z recv_rank filled_sub_arr elementów do &sub_arr[filled_sub_arr]
         recv_rank = rank + temp_size;
 
         if (recv_rank == rank)
             break;
 
+        LOG("Before receive from %d", recv_rank);
+        LOG_ARRAY(&sub_arr[0], sub_arr_size);
         LOG("Receive from %d", recv_rank);
         MPI_Recv(&sub_arr[filled_sub_arr], filled_sub_arr, MPI_INT32_T,
                  recv_rank, 0, MPI_COMM_WORLD, &status);
+        LOG("After receive from %d", recv_rank);
+        LOG_ARRAY(&sub_arr[0], sub_arr_size);
 
+        merge_sorted_in_place(&sub_arr[0], filled_sub_arr, &tmp_buf[0]);
+        LOG("After merge sorted:");
+        LOG_ARRAY(&sub_arr[0], sub_arr_size);
         temp_size >>= 1;
         temp_rank <<= 1;
         filled_sub_arr <<= 1;
+
     }
     if (root == rank)
     {
+        LOG("Final array:");
+        LOG_ARRAY(&sub_arr[0], sub_arr_size);
+        //print_array(stdout, &sub_arr[0], sub_arr_size);
     }
     else
     {
-        // send_rank = rank - temp_size
-        // wyslij do kogos z send_rank filled_sub_arr elementów z &sub_arr[0]
         send_rank = rank - temp_size;
         LOG("Send to %d", send_rank);
         MPI_Send(&sub_arr[0], filled_sub_arr, MPI_INT32_T,
                  send_rank, 0, MPI_COMM_WORLD);
+        LOG_ARRAY(&sub_arr[0], filled_sub_arr);
     }
 
-    print_array(&sub_arr[0], sub_arr_size);
 
     if (root == rank)
     {
         free(arr);
     }
     free(sub_arr);
+    free(tmp_buf);
+
+
+#ifdef LOG_TO_FILE
+    fclose(log_file);
+#endif
 
     MPI_Finalize();
     return 0;
 }
+
+void merge_sorted_in_place(int32_t *arr, int32_t arr_half_size, int32_t *tmp_buf)
+{
+    int32_t i = 0;
+    int32_t l = 0;
+    int32_t r = 0;
+    int32_t *arr_in1;
+    int32_t *arr_in2;
+
+    memcpy(&tmp_buf[0], &arr[0], arr_half_size * sizeof(*arr));
+
+    LOG("merge_sorted_in_place: arr_half_size=%d, arr[2*arr_half_size], tmp_buf[arr_half_size] after copy", arr_half_size);
+    LOG_ARRAY(&arr[0], 2*arr_half_size);
+    LOG_ARRAY(&tmp_buf[0], arr_half_size);
+
+    arr_in1 = &tmp_buf[0];
+    arr_in2 = &arr[arr_half_size];
+    while (l < arr_half_size && r < arr_half_size)
+    {
+        if (arr_in1[l] < arr_in2[r])
+        {
+            arr[i] = arr_in1[l];
+            ++l;
+        }
+        else
+        {
+            arr[i] = arr_in2[r];
+            ++r;
+        }
+        ++i;
+    }
+
+    while (l < arr_half_size)
+    {
+        arr[i] = arr_in1[l];
+        ++l;
+        ++i;
+    }
+
+    while (r < arr_half_size)
+    {
+        arr[i] = arr_in2[r];
+        ++r;
+        ++i;
+    }
+}
+
 
 
 void alloc_fill_array(int32_t **arr, int32_t size)
@@ -117,12 +203,12 @@ void alloc_fill_array(int32_t **arr, int32_t size)
     }
 }
 
-void print_array(int32_t *arr, int32_t size)
+void print_array(FILE *f, int32_t *arr, int32_t size)
 {
     for (int32_t i = 0; i < size; ++i)
     {
-        printf("%d, ", arr[i]);
+        fprintf(f, "%d, ", arr[i]);
     }
-    printf("\n");
+    fprintf(f, "\n");
 }
 
