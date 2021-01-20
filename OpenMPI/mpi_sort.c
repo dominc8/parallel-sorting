@@ -60,6 +60,7 @@ int main(int argc, char **argv)
     {
         alloc_fill_array(&arr, ARR_SIZE, 2*ARR_SIZE);
         LOG_ARRAY(&arr[0], ARR_SIZE);
+        start_time();
     }
 
 
@@ -105,6 +106,8 @@ int main(int argc, char **argv)
 
     if (root == rank)
     {
+        stop_time();
+        printf("[MPI] Elapsed time: %lf ms\n", elapsed_time_ms());
         LOG("Final array:");
         LOG_ARRAY(&sub_arr[0], sub_arr_size);
 #ifdef SAVE_RESULT
