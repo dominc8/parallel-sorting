@@ -12,29 +12,30 @@ FILE *log_file;
 
 #ifndef NDEBUG
 
-#define LOG(format, ...) fprintf(log_file, "%d: " format "\n", rank, ##__VA_ARGS__)
-#define LOG_ARRAY(arr_ptr, size) print_array(log_file, (arr_ptr), (size))
+    #define LOG(format, ...) fprintf(log_file, "%d: " format "\n", rank, ##__VA_ARGS__)
+    #define LOG_ARRAY(arr_ptr, size) print_array(log_file, (arr_ptr), (size))
 
 #else
 
-#define LOG(format, ...) do {} while (0)
-#define LOG_ARRAY(arr_ptr, size) do {} while (0)
+    #define LOG(format, ...) do {} while (0)
+    #define LOG_ARRAY(arr_ptr, size) do {} while (0)
 
-#endif
+#endif /*NDEBUG*/
 
 
 #define ARR_SIZE (1<<26)
 #ifndef N_SUBARRAYS
-#define N_SUBARRAYS 4
-#endif
+    #define N_SUBARRAYS 4
+#endif /*N_SUBARRAYS*/
 #define SUBARR_SIZE (ARR_SIZE/N_SUBARRAYS)
 
 static int rank;
 
-void alloc_fill_array(int32_t **arr, int32_t size);
-void print_array(FILE *f, int32_t *arr, int32_t size);
 void merge_sorted_in_place(int32_t *arr, int32_t arr_half_size, int32_t *tmp_buf);
+static void alloc_fill_array(int32_t **arr, int32_t size);
+static void print_array(FILE *f, int32_t *arr, int32_t size);
 
+/* Helper function for qsort */
 int cmpfunc_int32 (const void *a, const void *b)
 {
     return ( *(int32_t *)a - *(int32_t *)b);
@@ -43,14 +44,12 @@ int cmpfunc_int32 (const void *a, const void *b)
 int main(int argc, char **argv)
 {
     const int root = 0;
-    int size, size_mod, rank_mod;
+    int size;
     int recv_rank, send_rank;
     int32_t sub_arr_size;
-    int32_t init_sub_arr_offset;
     int32_t *arr;
     int32_t *sub_arr;
     int32_t *tmp_buf;
-    char log_file_name[15] = {0};
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -59,6 +58,7 @@ int main(int argc, char **argv)
     assert(size == N_SUBARRAYS);
 
 #ifdef LOG_TO_FILE
+    char log_file_name[15] = {0};
     snprintf(&log_file_name[0], sizeof(log_file_name), "proc%d.log", rank);
     log_file = fopen(&log_file_name[0], "w");
 #else
@@ -115,7 +115,7 @@ int main(int argc, char **argv)
     {
         LOG("Final array:");
         LOG_ARRAY(&sub_arr[0], sub_arr_size);
-        //print_array(stdout, &sub_arr[0], sub_arr_size);
+        /* print_array(stdout, &sub_arr[0], sub_arr_size); */
     }
     else
     {
@@ -194,7 +194,6 @@ void merge_sorted_in_place(int32_t *arr, int32_t arr_half_size, int32_t *tmp_buf
 }
 
 
-
 void alloc_fill_array(int32_t **arr, int32_t size)
 {
     *arr = (int32_t *)malloc(sizeof(**arr) * size);
@@ -206,6 +205,7 @@ void alloc_fill_array(int32_t **arr, int32_t size)
         ptr[i] = rand()%(2*ARR_SIZE);
     }
 }
+
 
 void print_array(FILE *f, int32_t *arr, int32_t size)
 {

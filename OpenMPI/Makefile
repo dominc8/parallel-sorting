@@ -1,8 +1,8 @@
 debug:
-	mpicc mpi_sort.c -o mpi_sort
+	mpicc -Wall -Wextra -pedantic mpi_sort.c -o mpi_sort
 
 release:
-	mpicc -DNDEBUG -Ofast mpi_sort.c -o mpi_sort
+	mpicc -Wall -Wextra -pedantic -DNDEBUG -Ofast mpi_sort.c -o mpi_sort
 
 run:
 	mpirun --use-hwthread-cpus mpi_sort
