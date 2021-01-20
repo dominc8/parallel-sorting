@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <math.h>
 #include <mpi.h>
+
 #define LOG_TO_FILE
 
 FILE *log_file;
@@ -28,8 +29,7 @@ FILE *log_file;
 #endif
 #define SUBARR_SIZE (ARR_SIZE/N_SUBARRAYS)
 
-int rank;
-
+static int rank;
 
 void alloc_fill_array(int32_t **arr, int32_t size);
 void print_array(FILE *f, int32_t *arr, int32_t size);
@@ -143,6 +143,10 @@ int main(int argc, char **argv)
     return 0;
 }
 
+/* 
+ * arr: 2 sorted arrays next to eachother, each of size arr_half_size 
+ * tmp_buf: temporary buffer of size arr_half_size
+ */
 void merge_sorted_in_place(int32_t *arr, int32_t arr_half_size, int32_t *tmp_buf)
 {
     int32_t i = 0;
@@ -152,13 +156,13 @@ void merge_sorted_in_place(int32_t *arr, int32_t arr_half_size, int32_t *tmp_buf
     int32_t *arr_in2;
 
     memcpy(&tmp_buf[0], &arr[0], arr_half_size * sizeof(*arr));
+    arr_in1 = &tmp_buf[0];
+    arr_in2 = &arr[arr_half_size];
 
     LOG("merge_sorted_in_place: arr_half_size=%d, arr[2*arr_half_size], tmp_buf[arr_half_size] after copy", arr_half_size);
     LOG_ARRAY(&arr[0], 2*arr_half_size);
     LOG_ARRAY(&tmp_buf[0], arr_half_size);
 
-    arr_in1 = &tmp_buf[0];
-    arr_in2 = &arr[arr_half_size];
     while (l < arr_half_size && r < arr_half_size)
     {
         if (arr_in1[l] < arr_in2[r])
