@@ -5,8 +5,7 @@
 #include <assert.h>
 #include <math.h>
 #include <mpi.h>
-
-#define LOG_TO_FILE
+#include "utils.h"
 
 FILE *log_file;
 
@@ -32,14 +31,6 @@ FILE *log_file;
 static int rank;
 
 void merge_sorted_in_place(int32_t *arr, int32_t arr_half_size, int32_t *tmp_buf);
-static void alloc_fill_array(int32_t **arr, int32_t size);
-static void print_array(FILE *f, int32_t *arr, int32_t size);
-
-/* Helper function for qsort */
-int cmpfunc_int32 (const void *a, const void *b)
-{
-    return ( *(int32_t *)a - *(int32_t *)b);
-}
 
 int main(int argc, char **argv)
 {
@@ -67,7 +58,7 @@ int main(int argc, char **argv)
 
     if (root == rank)
     {
-        alloc_fill_array(&arr, ARR_SIZE);
+        alloc_fill_array(&arr, ARR_SIZE, 2*ARR_SIZE);
         LOG_ARRAY(&arr[0], ARR_SIZE);
     }
 
@@ -111,11 +102,14 @@ int main(int argc, char **argv)
         filled_sub_arr <<= 1;
 
     }
+
     if (root == rank)
     {
         LOG("Final array:");
         LOG_ARRAY(&sub_arr[0], sub_arr_size);
-        /* print_array(stdout, &sub_arr[0], sub_arr_size); */
+#ifdef SAVE_RESULT
+        save_results("result", &sub_arr[0], sizeof(*sub_arr), sub_arr_size);
+#endif
     }
     else
     {
@@ -125,7 +119,6 @@ int main(int argc, char **argv)
                  send_rank, 0, MPI_COMM_WORLD);
         LOG_ARRAY(&sub_arr[0], filled_sub_arr);
     }
-
 
     if (root == rank)
     {
@@ -191,28 +184,5 @@ void merge_sorted_in_place(int32_t *arr, int32_t arr_half_size, int32_t *tmp_buf
         ++r;
         ++i;
     }
-}
-
-
-void alloc_fill_array(int32_t **arr, int32_t size)
-{
-    *arr = (int32_t *)malloc(sizeof(**arr) * size);
-
-    int32_t *ptr = *arr;
-
-    for (int32_t i = 0; i < size; ++i)
-    {
-        ptr[i] = rand()%(2*ARR_SIZE);
-    }
-}
-
-
-void print_array(FILE *f, int32_t *arr, int32_t size)
-{
-    for (int32_t i = 0; i < size; ++i)
-    {
-        fprintf(f, "%d, ", arr[i]);
-    }
-    fprintf(f, "\n");
 }
 
