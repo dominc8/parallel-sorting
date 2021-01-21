@@ -2,7 +2,11 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+
+extern "C"
+{
 #include "utils.h"
+}
 
 FILE *log_file;
 
@@ -17,6 +21,9 @@ FILE *log_file;
     #define LOG_ARRAY(arr_ptr, size) do {} while (0)
 
 #endif /*NDEBUG*/
+
+#define N_BLOCKS    512
+#define N_THREADS   512
 
 __global__ void gpu_sort(int32_t *arr, int32_t size);
 static int32_t compare_arr(int32_t *arr1, int32_t *arr2, int32_t size);
@@ -46,7 +53,7 @@ int main(int argc, char **argv)
     /* GPU START */
     start_time();
 
-    gpu_sort(&arr[0], arr_size);
+    gpu_sort<<<N_BLOCKS, N_THREADS>>>(&arr[0], arr_size);
 
     stop_time();
 

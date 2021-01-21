@@ -1,12 +1,9 @@
-C_FLAGS := -Wall -Wextra -pedantic -I../utils -std=c99
+C_FLAGS := -I../utils
 CC := nvcc
 
 debug:
-	$(CC) $(C_FLAGS) -DSAVE_RESULT -DLOG_TO_FILE cuda_sort.cu ../utils/utils.c -o cuda_sort
+	$(CC) $(C_FLAGS) -DLOG_TO_FILE cuda_sort.cu ../utils/utils.c -o cuda_sort
 
 release:
-	$(CC) $(C_FLAGS) -DNDEBUG -Ofast cuda_sort.cu ../utils/utils.c -o cuda_sort
-
-release_save:
-	$(CC) $(C_FLAGS) -DSAVE_RESULT -DNDEBUG -Ofast cuda_sort.cu ../utils/utils.c -o cuda_sort
+	$(CC) $(C_FLAGS) -DNDEBUG -O3 cuda_sort.cu ../utils/utils.c -o cuda_sort
 

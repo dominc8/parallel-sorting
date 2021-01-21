@@ -6,13 +6,15 @@ static double timestamp_start, timestamp_end;
 
 void alloc_fill_array(int32_t **arr, int32_t size, int32_t max_val)
 {
+    int32_t *ptr;
+    int32_t i;
     srand(0);
 
     *arr = (int32_t *)malloc(sizeof(**arr) * size);
 
-    int32_t *ptr = *arr;
+    ptr = *arr;
 
-    for (int32_t i = 0; i < size; ++i)
+    for (i = 0; i < size; ++i)
     {
         ptr[i] = rand()%(max_val);
     }
@@ -20,7 +22,8 @@ void alloc_fill_array(int32_t **arr, int32_t size, int32_t max_val)
 
 void print_array(FILE *f, int32_t *arr, int32_t size)
 {
-    for (int32_t i = 0; i < size; ++i)
+    int32_t i;
+    for (i = 0; i < size; ++i)
     {
         fprintf(f, "%d, ", arr[i]);
     }
