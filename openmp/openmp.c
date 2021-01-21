@@ -61,13 +61,19 @@ void divide(long* array, int startI, int endI){
     int halfI = 0;
     if(startI < endI){
         halfI = (startI + endI)/2;
-        #pragma omp parallel sections
-        {
-            #pragma omp section
-            divide(array, startI, halfI);
-            #pragma omp section
-            divide(array, halfI + 1, endI);               
+        if((endI - startI)> 30){
+            #pragma omp parallel sections
+            {
+                #pragma omp section
+                divide(array, startI, halfI);
+                #pragma omp section
+                divide(array, halfI + 1, endI);               
+            }            
+        }else{
+                divide(array, startI, halfI);
+                divide(array, halfI + 1, endI);        
         }
+
         combine(array, startI, halfI, endI);
     }
 }
@@ -80,7 +86,7 @@ void merge_sort(long* array, int size){
 main(int argc, char *argv[]){
     if(argc == 2){
         FILE *in, *out;
-        in = fopen("input.txt", "r");
+        in = fopen("input2.txt", "r");
         out = fopen("output.txt", "w");
         if(in == NULL || out == NULL){
             printf("Error reading from file\n");
