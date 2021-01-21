@@ -46,9 +46,21 @@ int main(int argc, char **argv)
     memcpy(&arr_ref[0], &arr[0], arr_size * sizeof(*arr));
     LOG_ARRAY(&arr[0], arr_size);
 
+
+    /* REF START */
+
+    start_time();
+
     qsort(&arr_ref[0], arr_size, sizeof(*arr_ref), &cmpfunc_int32);
-    LOG("Reference sorted array");
+
+    stop_time();
+
+    printf("[Ref qsort] Elapsed time: %lf ms\n", elapsed_time_ms());
+    LOG("[Ref qsort] Sorted array");
     LOG_ARRAY(&arr_ref[0], arr_size);
+
+    /* REF STOP */
+
 
     /* GPU START */
     start_time();
